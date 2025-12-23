@@ -23,6 +23,7 @@ Route::middleware(['auth:sanctum', 'kasir.autologout'])->group(function () {
     Route::get('/items', [ItemController::class, 'index']);
     Route::post('/items', [ItemController::class, 'store']);
     Route::put('/items/{item}', [ItemController::class, 'update']);
+    Route::delete('/items/{item}', [ItemController::class, 'destroy']);
     Route::post('/items/{item}/bundle-components', [ItemController::class, 'setBundleComponents']);
 
     Route::post('/sales', [POSController::class, 'storeSale']);

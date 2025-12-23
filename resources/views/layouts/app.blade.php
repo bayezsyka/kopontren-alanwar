@@ -2,231 +2,175 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="api-base-url" content="{{ env('FRONTEND_API_BASE_URL', 'http://127.0.0.1:8000/api') }}">
     
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#06b6d4">
+    <meta name="theme-color" content="#008362">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Kopontren Kasir">
+    <meta name="apple-mobile-web-app-title" content="Kasir">
     
-    <!-- PWA Manifest -->
+    <title>@yield('title', 'Kasir') - Al-Anwar</title>
+    
+    <!-- PWA Links -->
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/images/icons/icon-152x152.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/icon-72x72.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
     
-    <title>@yield('title', 'Kopontren Kasir')</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Styles -->
-    @vite(['resources/css/app.css'])
+    @vite('resources/css/app.css')
     
-    <style>
-        /* Loading States */
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #06b6d4;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Offline Indicator */
-        #offline-indicator {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #f59e0b;
-            color: white;
-            padding: 0.5rem;
-            text-align: center;
-            display: none;
-            z-index: 9999;
-            font-size: 0.875rem;
-        }
-
-        #offline-indicator.show {
-            display: block;
-        }
-
-        /* Toast Notifications */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            min-width: 250px;
-            max-width: 400px;
-            background: white;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transform: translateX(500px);
-            transition: transform 0.3s ease;
-            z-index: 9999;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast.success {
-            border-left: 4px solid #10b981;
-        }
-
-        .toast.error {
-            border-left: 4px solid #ef4444;
-        }
-
-        .toast.info {
-            border-left: 4px solid #3b82f6;
-        }
-
-        .toast.warning {
-            border-left: 4px solid #f59e0b;
-        }
-
-        /* Mobile-first button sizes */
-        .btn {
-            @apply px-4 py-3 rounded-lg font-semibold transition min-h-[48px] flex items-center justify-center;
-        }
-
-        .btn-primary {
-            @apply bg-cyan-500 hover:bg-cyan-600 text-white;
-        }
-
-        .btn-secondary {
-            @apply bg-gray-200 hover:bg-gray-300 text-gray-800;
-        }
-
-        .btn-danger {
-            @apply bg-red-500 hover:bg-red-600 text-white;
-        }
-
-        /* Input styles */
-        .input {
-            @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent min-h-[48px];
-        }
-    </style>
+    <!-- Scripts (loaded in head to register Alpine components before body is parsed) -->
+    @vite('resources/js/app.js')
+    
     @stack('styles')
 </head>
-<body class="bg-gray-50">
-    <!-- Offline Indicator -->
-    <div id="offline-indicator">
-        <span>⚠️ Offline - Data akan disinkronkan saat online kembali</span>
+<body class="antialiased">
+    <!-- Offline Banner -->
+    <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-50 bg-red-500 text-white text-center py-2 text-sm font-medium shadow-lg">
+        ⚠️ Anda sedang offline
     </div>
 
-    <!-- PWA Install Button -->
-    <button id="pwa-install-btn" style="display: none;" 
-            class="fixed bottom-20 right-4 bg-cyan-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-cyan-600 transition z-50">
-        📱 Install App
-    </button>
+    <!-- PWA Install Banner -->
+    <div id="pwa-install-banner" class="hidden fixed bottom-20 left-4 right-4 z-40 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white rounded-2xl p-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+            <div class="flex-1">
+                <h3 class="font-semibold text-sm">Install Aplikasi</h3>
+                <p class="text-xs opacity-90 mt-0.5">Akses lebih cepat dari layar utama</p>
+            </div>
+            <button onclick="installPWA()" class="btn bg-white text-[var(--color-primary)] hover:bg-gray-100 text-sm px-4 py-2">
+                Install
+            </button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    @if(!isset($hideHeader) || !$hideHeader)
+    <header class="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                @if(isset($showBack) && $showBack)
+                <button onclick="history.back()" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                @endif
+                <h1 class="text-lg font-bold text-gray-900">@yield('page-title', 'Kasir')</h1>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                @yield('header-actions')
+                
+                <!-- User Info -->
+                <div x-data="userInfo" class="flex items-center gap-2 ml-2">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs font-semibold text-gray-900 leading-tight" x-text="userName"></p>
+                        <span 
+                            class="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                            :class="badgeClass"
+                            x-text="badgeText"
+                        ></span>
+                    </div>
+                    <div 
+                        class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                        :class="avatarClass"
+                        x-text="initials"
+                    ></div>
+                </div>
+            </div>
+        </div>
+    </header>
+    @endif
 
     <!-- Main Content -->
-    <div id="app">
+    <main class="pb-20">
         @yield('content')
-    </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    @if(!isset($hideBottomNav) || !$hideBottomNav)
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-100 shadow-lg safe-area-inset-bottom" x-data="bottomNav">
+        <div class="grid grid-cols-5 gap-1 px-2 py-2" id="bottom-nav" x-html="navHtml">
+            <!-- Navigation items will be injected by Alpine.js based on user mode -->
+        </div>
+    </nav>
+    @endif
 
     <!-- Toast Container -->
-    <div id="toast-container"></div>
+    <div id="toast-container" class="fixed top-20 right-4 z-50 space-y-2">
+        <!-- Toasts will be injected here -->
+    </div>
 
-    <!-- Base Scripts -->
+    <!-- Inline Scripts -->
+    
     <script>
-        // CSRF Token
-        window.csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-
-        // Online/Offline Status
-        function updateOnlineStatus() {
-            const indicator = document.getElementById('offline-indicator');
-            if (navigator.onLine) {
-                indicator.classList.remove('show');
-            } else {
-                indicator.classList.add('show');
+        // Switch to kasir mode (for owner)
+        async function switchToKasirMode() {
+            if (!confirm('Beralih ke mode Kasir?')) return;
+            
+            try {
+                await api.post('/me/mode', { ui_mode: 'kasir' });
+                const user = getAuthUser();
+                user.ui_mode = 'kasir';
+                localStorage.setItem('auth_user', JSON.stringify(user));
+                showToast('✅ Beralih ke mode Kasir', 'success');
+                setTimeout(() => {
+                    window.location.href = '/pos';
+                }, 500);
+            } catch (error) {
+                showToast('❌ Gagal mengubah mode: ' + error.message, 'error');
             }
         }
 
-        window.addEventListener('online', updateOnlineStatus);
-        window.addEventListener('offline', updateOnlineStatus);
-        updateOnlineStatus();
+        // Switch to owner mode (for owner in kasir mode)
+        async function switchToOwnerMode() {
+            if (!confirm('Kembali ke mode Owner?')) return;
+            
+            try {
+                await api.post('/me/mode', { ui_mode: 'owner' });
+                const user = getAuthUser();
+                user.ui_mode = 'owner';
+                localStorage.setItem('auth_user', JSON.stringify(user));
+                showToast('✅ Kembali ke mode Owner', 'success');
+                setTimeout(() => {
+                    window.location.href = '/owner/dashboard';
+                }, 500);
+            } catch (error) {
+                showToast('❌ Gagal mengubah mode: ' + error.message, 'error');
+            }
+        }
 
-        // Toast System
-        function showToast(message, type = 'info') {
+        // Toast helper
+        window.showToast = (message, type = 'success') => {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
+            const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
             
-            const icons = {
-                success: '✓',
-                error: '✕',
-                warning: '⚠',
-                info: 'ℹ'
-            };
-            
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-slide-in-right max-w-sm`;
             toast.innerHTML = `
-                <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl">${icons[type] || 'ℹ'}</span>
-                        <span>${message}</span>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="text-gray-500 hover:text-gray-700 text-xl">
-                        ✕
-                    </button>
-                </div>
+                <span class="flex-1 text-sm font-medium">${message}</span>
+                <button onclick="this.parentElement.remove()" class="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
             `;
             
             container.appendChild(toast);
-            setTimeout(() => toast.classList.add('show'), 100);
+            
             setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
+                toast.remove();
             }, 5000);
-        }
-
-        window.showToast = showToast;
-
-        // Currency Formatter
-        function formatRupiah(amount) {
-            return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0
-            }).format(amount);
-        }
-
-        window.formatRupiah = formatRupiah;
-
-        // Number formatter
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID').format(num);
-        }
-
-        window.formatNumber = formatNumber;
+        };
     </script>
-
-    <!-- PWA Scripts -->
-    <script src="/js/offline-db.js"></script>
-    <script src="/js/sync-service.js"></script>
-    <script src="/js/pwa-installer.js"></script>
-    <script src="/js/api-client.js"></script>
-    <script src="/js/auth-guard.js"></script>
     
-    <!-- Init Sync Service -->
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            await window.syncService.init();
-        });
-    </script>
-
-    @vite(['resources/js/app.js'])
     @stack('scripts')
 </body>
 </html>

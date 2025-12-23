@@ -1,371 +1,206 @@
-@extends('layouts.main')
+@extends('layouts.app')
 
-@section('title', 'POS - Kopontren Kasir')
+@section('title', 'POS Kasir')
+@section('page-title', 'POS Kasir')
 
 @section('content')
-<div class="container mx-auto px-4 py-4 max-w-7xl">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Left Panel: Search & Items -->
-        <div class="lg:col-span-2 space-y-4">
-            <!-- Search Bar -->
-            <div class="card">
-                <div class="relative">
-                    <input 
-                        type="text" 
-                        id="searchInput" 
-                        class="input pl-12" 
-                        placeholder="Scan barcode atau cari item..."
-                        autofocus
+<div class="p-4 space-y-4" x-data="posAppComponent">
+    <!-- Search Bar -->
+    <div class="card">
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Cari Barang</label>
+        <div class="relative">
+            <input 
+                type="text" 
+                x-model="searchQuery"
+                @input.debounce.250ms="searchItems"
+                @keydown.enter.prevent="selectFirstItem"
+                class="input-field pl-11"
+                placeholder="Ketik nama atau scan barcode..."
+                autofocus
+                x-ref="searchInput"
+            >
+            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+
+            <!-- Search Dropdown -->
+            <div 
+                x-show="searchResults.length > 0 && searchQuery.length > 0" 
+                @click.away="searchResults = []"
+                class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-xl max-h-64 overflow-y-auto z-20"
+            >
+                <template x-for="item in searchResults" :key="item.id">
+                    <button 
+                        @click="addToCart(item)"
+                        class="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
                     >
-                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                </div>
-
-                <!-- Search Results -->
-                <div id="searchResults" class="mt-4 space-y-2 max-h-64 overflow-y-auto hidden"></div>
-            </div>
-
-            <!-- Quick Items Grid -->
-            <div class="card">
-                <h3 class="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <i class="fas fa-bolt text-yellow-500"></i>
-                    Quick Items
-                </h3>
-                <div id="quickItemsGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <!-- Loading skeleton -->
-                    <div class="animate-pulse bg-gray-200 h-24 rounded-lg"></div>
-                    <div class="animate-pulse bg-gray-200 h-24 rounded-lg"></div>
-                    <div class="animate-pulse bg-gray-200 h-24 rounded-lg"></div>
-                    <div class="animate-pulse bg-gray-200 h-24 rounded-lg"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Panel: Cart -->
-        <div class="lg:col-span-1">
-            <div class="card sticky top-20">
-                <h3 class="font-bold text-gray-900 mb-3 flex items-center justify-between">
-                    <span><i class="fas fa-shopping-cart mr-2"></i>Keranjang</span>
-                    <button id="clearCartBtn" class="text-sm text-red-500 hover:text-red-700">
-                        <i class="fas fa-trash"></i>
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex-1">
+                                <p class="font-semibold text-sm text-gray-900" x-text="item.name"></p>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <span x-text="item.type === 'bundle' ? '📦 Bundle' : '📋 Normal'"></span>
+                                    <span class="mx-1">•</span>
+                                    <span>Stok: <span x-text="item.stock_display"></span></span>
+                                </p>
+                            </div>
+                            <p class="font-bold text-sm text-[var(--color-primary)]" x-text="formatCurrency(item.price_sell)"></p>
+                        </div>
                     </button>
-                </h3>
-
-                <!-- Cart Items -->
-                <div id="cartItems" class="space-y-2 max-h-96 overflow-y-auto mb-4">
-                    <p class="text-gray-400 text-center py-8 text-sm">Keranjang kosong</p>
-                </div>
-
-                <!-- Total -->
-                <div class="border-t pt-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <span class="font-bold text-lg">Total:</span>
-                        <span id="cartTotal" class="font-bold text-2xl text-cyan-600">Rp 0</span>
-                    </div>
-
-                    <button id="checkoutBtn" class="btn btn-primary btn-block" disabled>
-                        <i class="fas fa-check-circle mr-2"></i>
-                        Checkout
-                    </button>
-                </div>
+                </template>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Checkout Modal -->
-<div id="checkoutModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg max-w-md w-full p-6">
-        <h3 class="text-xl font-bold mb-4">Checkout</h3>
-        
-        <div class="mb-4">
-            <p class="text-gray-600 mb-2">Total Pembayaran:</p>
-            <p id="modalTotal" class="text-3xl font-bold text-cyan-600">Rp 0</p>
+    <!-- Quick Items -->
+    <div class="card" x-show="quickItems.length > 0">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase mb-3">Item Cepat</h3>
+        <div class="grid grid-cols-3 gap-2">
+            <template x-for="item in quickItems" :key="item.id">
+                <button 
+                    @click="addToCart(item)"
+                    class="bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] text-white rounded-xl p-3 text-center hover:scale-105 active:scale-95 transition-transform shadow-lg"
+                >
+                    <p class="font-bold text-sm mb-1" x-text="item.name"></p>
+                    <p class="text-xs opacity-90" x-text="formatCurrency(item.price_sell)"></p>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- Cart -->
+    <div class="card">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase">Keranjang (<span x-text="cart.length"></span>)</h3>
+            <button 
+                x-show="cart.length > 0"
+                @click="clearCart"
+                class="text-xs text-red-500 hover:text-red-700 font-semibold"
+            >
+                Kosongkan
+            </button>
         </div>
 
+        <div x-show="cart.length === 0" class="text-center py-8 text-gray-400">
+            <svg class="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <p class="text-sm font-medium">Keranjang kosong</p>
+        </div>
+
+        <div x-show="cart.length > 0" class="space-y-2">
+            <template x-for="(cartItem, index) in cart" :key="index">
+                <div class="bg-gray-50 rounded-xl p-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <p class="font-semibold text-sm text-gray-900" x-text="cartItem.name"></p>
+                            <p class="text-xs text-gray-500" x-text="formatCurrency(cartItem.price)"></p>
+                        </div>
+                        <button 
+                            @click="removeFromCart(index)"
+                            class="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <button 
+                                @click="decrementQty(index)"
+                                class="w-10 h-10 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 active:scale-95 transition-all font-bold text-lg"
+                            >-</button>
+                            <input 
+                                type="number" 
+                                x-model.number="cartItem.qty"
+                                @change="updateCartItem(index)"
+                                min="1"
+                                class="w-16 text-center bg-white border border-gray-200 rounded-lg py-2 font-semibold text-sm"
+                            >
+                            <button 
+                                @click="incrementQty(index)"
+                                class="w-10 h-10 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 active:scale-95 transition-all font-bold text-lg"
+                            >+</button>
+                        </div>
+                        <p class="font-bold text-[var(--color-primary)]" x-text="formatCurrency(cartItem.price * cartItem.qty)"></p>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Checkout -->
+    <div class="card bg-gradient-to-br from-gray-50 to-white" x-show="cart.length > 0">
+        <!-- Payment Method -->
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Metode Pembayaran</label>
-            <select id="paymentMethod" class="input">
-                <option value="cash">Cash</option>
-                <option value="qris">QRIS</option>
-                <option value="transfer">Transfer</option>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Metode Pembayaran</label>
+            <select x-model="paymentMethod" class="input-field">
+                <option value="cash">💵 Tunai</option>
+                <option value="qris">📱 QRIS</option>
+                <option value="transfer">🏦 Transfer</option>
             </select>
         </div>
 
-        <div class="flex gap-2">
-            <button id="cancelCheckoutBtn" class="btn btn-secondary flex-1">Batal</button>
-            <button id="confirmCheckoutBtn" class="btn btn-primary flex-1">
-                <i class="fas fa-check mr-2"></i>Konfirmasi
+        <!-- Total -->
+        <div class="bg-white rounded-xl p-4 mb-4 border-2 border-[var(--color-primary)] shadow-lg">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-semibold text-gray-700">Total</span>
+                <span class="text-2xl font-bold text-[var(--color-primary)]" x-text="formatCurrency(total)"></span>
+            </div>
+        </div>
+
+        <!-- Checkout Button -->
+        <button 
+            @click="checkout"
+            :disabled="loading"
+            class="btn btn-primary w-full text-base py-4 shadow-xl"
+        >
+            <svg x-show="loading" class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span x-show="!loading">💳 Selesaikan Pembayaran</span>
+            <span x-show="loading">Memproses...</span>
+        </button>
+
+        <!-- Secondary Actions -->
+        <div class="grid grid-cols-2 gap-2 mt-2">
+            <button @click="holdCart" class="btn btn-secondary text-xs py-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+                Tahan
+            </button>
+            <button @click="resumeCart" class="btn btn-secondary text-xs py-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Lanjutkan
             </button>
         </div>
     </div>
-</div>
 
-<!-- Stock Error Modal -->
-<div id="stockErrorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg max-w-md w-full p-6">
-        <div class="text-center mb-4">
-            <i class="fas fa-exclamation-circle text-red-500 text-5xl mb-3"></i>
-            <h3 class="text-xl font-bold text-red-600">Stok Tidak Cukup!</h3>
+    <!-- Stock Error Modal -->
+    <div 
+        x-show="stockError" 
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click.self="stockError = null"
+    >
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div class="text-center mb-4">
+                <div class="w-16 h-16 bg-red-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Stok Tidak Cukup</h3>
+                <template x-if="stockError">
+                    <div class="text-sm text-gray-600 space-y-2" x-html="stockError"></div>
+                </template>
+            </div>
+            <button @click="stockError = null" class="btn btn-primary w-full">OK</button>
         </div>
-        
-        <div id="stockErrorDetails" class="space-y-2 mb-4"></div>
-
-        <button id="closeStockErrorBtn" class="btn btn-secondary btn-block">Tutup</button>
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-let cart = [];
-let allItems = [];
-
-// Load Quick Items
-async function loadQuickItems() {
-    try {
-        const response = await window.api.get('/items?quick=1');
-        const items = response.data || response;
-        
-        const grid = document.getElementById('quickItemsGrid');
-        grid.innerHTML = items.map(item => `
-            <button onclick="addToCart(${JSON.stringify(item).replace(/"/g, '&quot;')})" 
-                    class="bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white p-4 rounded-lg transition transform active:scale-95">
-                <div class="font-bold text-sm mb-1">${item.name}</div>
-                <div class="text-xs opacity-90">${formatRupiah(item.price_sell)}</div>
-            </button>
-        `).join('');
-    } catch (error) {
-        console.error('Failed to load quick items:', error);
-    }
-}
-
-// Search Items
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
-
-const performSearch = debounce(async function(query) {
-    if (query.length < 2) {
-        searchResults.classList.add('hidden');
-        return;
-    }
-
-    try {
-        const response = await window.api.get(`/items?search=${encodeURIComponent(query)}`);
-        const items = response.data || response;
-        
-        if (items.length === 0) {
-            searchResults.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Tidak ada hasil</p>';
-        } else {
-            searchResults.innerHTML = items.map((item, index) => `
-                <button onclick="addToCart(${JSON.stringify(item).replace(/"/g, '&quot;')}); clearSearch();" 
-                        class="w-full text-left p-3 hover:bg-gray-50 rounded-lg border border-gray-200 transition"
-                        id="searchResult${index}">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <div class="font-semibold text-gray-900">${item.name}</div>
-                            <div class="text-sm text-gray-500">Stock: ${item.stock_cached || 0}</div>
-                        </div>
-                        <div class="text-cyan-600 font-bold">${formatRupiah(item.price_sell)}</div>
-                    </div>
-                </button>
-            `).join('');
-        }
-        
-        searchResults.classList.remove('hidden');
-        allItems = items;
-    } catch (error) {
-        console.error('Search error:', error);
-    }
-}, 300);
-
-searchInput.addEventListener('input', (e) => {
-    performSearch(e.target.value);
-});
-
-// Enter key handler
-searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const firstResult = document.getElementById('searchResult0');
-        if (firstResult) {
-            firstResult.click();
-        }
-    }
-});
-
-function clearSearch() {
-    searchInput.value = '';
-    searchResults.classList.add('hidden');
-    searchInput.focus();
-}
-
-// Add to Cart
-function addToCart(item) {
-    const existingItem = cart.find(i => i.item_id === item.id);
-    
-    if (existingItem) {
-        existingItem.qty++;
-    } else {
-        cart.push({
-            item_id: item.id,
-            name: item.name,
-            unit_price: item.price_sell,
-            qty: 1,
-            max_stock: item.stock_cached || 0
-        });
-    }
-    
-    renderCart();
-}
-
-// Render Cart
-function renderCart() {
-    const cartItems = document.getElementById('cartItems');
-    const cartTotal = document.getElementById('cartTotal');
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    
-    if (cart.length === 0) {
-        cartItems.innerHTML = '<p class="text-gray-400 text-center py-8 text-sm">Keranjang kosong</p>';
-        cartTotal.textContent = 'Rp 0';
-        checkoutBtn.disabled = true;
-        return;
-    }
-    
-    let total = 0;
-    cartItems.innerHTML = cart.map((item, index) => {
-        const subtotal = item.qty * item.unit_price;
-        total += subtotal;
-        
-        return `
-            <div class="flex items-center gap-3 pb-3 border-b">
-                <div class="flex-1">
-                    <div class="font-semibold text-sm">${item.name}</div>
-                    <div class="text-xs text-gray-500">${formatRupiah(item.unit_price)}</div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="updateQty(${index}, -1)" class="w-8 h-8 bg-gray-200 rounded-full hover:bg-gray-300">
-                        <i class="fas fa-minus text-xs"></i>
-                    </button>
-                    <span class="w-8 text-center font-bold">${item.qty}</span>
-                    <button onclick="updateQty(${index}, 1)" class="w-8 h-8 bg-cyan-500 text-white rounded-full hover:bg-cyan-600">
-                        <i class="fas fa-plus text-xs"></i>
-                    </button>
-                </div>
-                <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 px-2">
-                    <i class="fas fa-trash text-sm"></i>
-                </button>
-            </div>
-        `;
-    }).join('');
-    
-    cartTotal.textContent = formatRupiah(total);
-    checkoutBtn.disabled = false;
-}
-
-function updateQty(index, delta) {
-    cart[index].qty += delta;
-    if (cart[index].qty <= 0) {
-        cart.splice(index, 1);
-    }
-    renderCart();
-}
-
-function removeItem(index) {
-    cart.splice(index, 1);
-    renderCart();
-}
-
-document.getElementById('clearCartBtn').addEventListener('click', () => {
-    if (cart.length > 0 && confirm('Kosongkan keranjang?')) {
-        cart = [];
-        renderCart();
-    }
-});
-
-// Checkout
-document.getElementById('checkoutBtn').addEventListener('click', () => {
-    const total = cart.reduce((sum, item) => sum + (item.qty * item.unit_price), 0);
-    document.getElementById('modalTotal').textContent = formatRupiah(total);
-    document.getElementById('checkoutModal').classList.remove('hidden');
-    document.body.classList.add('modal-open');
-});
-
-document.getElementById('cancelCheckoutBtn').addEventListener('click', () => {
-    document.getElementById('checkoutModal').classList.add('hidden');
-    document.body.classList.remove('modal-open');
-});
-
-document.getElementById('confirmCheckoutBtn').addEventListener('click', async () => {
-    const paymentMethod = document.getElementById('paymentMethod').value;
-    
-    showLoading();
-    
-    try {
-        const saleData = {
-            payment_method: paymentMethod,
-            lines: cart.map(item => ({
-                item_id: item.item_id,
-                qty: item.qty,
-                unit_price: item.unit_price
-            }))
-        };
-
-        if (navigator.onLine) {
-            // Online: kirim ke server
-            await window.api.post('/sales', saleData);
-        } else {
-            // Offline: simpan di IndexedDB
-            await window.offlineDB.saveTransaction({
-                items: saleData.lines,
-                total: cart.reduce((sum, item) => sum + (item.qty * item.unit_price), 0),
-                payment_method: paymentMethod
-            });
-        }
-        
-        hideLoading();
-        document.getElementById('checkoutModal').classList.add('hidden');
-        document.body.classList.remove('modal-open');
-        
-        showToast('Transaksi berhasil!', 'success');
-        cart = [];
-        renderCart();
-        
-    } catch (error) {
-        hideLoading();
-        console.error('Checkout error:', error);
-        
-        // Handle stock error
-        if (error.status === 422 && error.details) {
-            showStockError(error.details);
-            document.getElementById('checkoutModal').classList.add('hidden');
-        } else {
-            showToast(error.message || 'Transaksi gagal', 'error');
-        }
-    }
-});
-
-function showStockError(details) {
-    const container = document.getElementById('stockErrorDetails');
-    container.innerHTML = details.map(item => `
-        <div class="bg-red-50 border border-red-200 rounded p-3">
-            <div class="font-semibold text-red-900">${item.name}</div>
-            <div class="text-sm text-red-700">
-                Stok tersedia: ${item.stock} | Dibutuhkan: ${item.need}
-            </div>
-        </div>
-    `).join('');
-    
-    document.getElementById('stockErrorModal').classList.remove('hidden');
-}
-
-document.getElementById('closeStockErrorBtn').addEventListener('click', () => {
-    document.getElementById('stockErrorModal').classList.add('hidden');
-    document.body.classList.remove('modal-open');
-});
-
-// Init
-document.addEventListener('DOMContentLoaded', () => {
-    loadQuickItems();
-});
-</script>
-@endpush

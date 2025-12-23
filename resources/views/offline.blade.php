@@ -1,68 +1,45 @@
-@extends('layouts.app')
-
-@section('title', 'Offline - Kopontren Kasir')
-
-@section('content')
-<div class="min-h-screen flex items-center justify-center px-4">
-    <div class="text-center">
-        <div class="mb-8">
-            <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                      d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#008362">
+    <title>Offline - Kasir Al-Anwar</title>
+    @vite('resources/css/app.css')
+</head>
+<body class="antialiased bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen flex items-center justify-center p-4">
+    <div class="text-center max-w-md mx-auto">
+       <div class="w-24 h-24 bg-white rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl">
+            <svg class="w-14 h-14 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"/>
             </svg>
         </div>
 
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">Anda Sedang Offline</h1>
-        
-        <p class="text-lg text-gray-600 mb-8 max-w-md mx-auto">
-            Koneksi internet terputus. Tenang, Anda masih bisa melakukan transaksi dan data akan tersimpan secara lokal.
+        <h1 class="text-3xl font-bold text-gray-800 mb-3">Anda Sedang Offline</h1>
+        <p class="text-gray-600 mb-6">
+            Koneksi internet tidak tersedia. Beberapa fitur mungkin tidak berfungsi dengan baik.
         </p>
 
-        <div class="space-y-4">
-            <div class="bg-cyan-50 border border-cyan-200 rounded-lg p-4 max-w-md mx-auto">
-                <h3 class="font-semibold text-cyan-900 mb-2">✅ Fitur yang Tetap Berfungsi:</h3>
-                <ul class="text-left text-sm text-cyan-800 space-y-1">
-                    <li>• Melakukan transaksi penjualan</li>
-                    <li>• Menambah item ke keranjang</li>
-                    <li>• Melihat data yang sudah di-cache</li>
-                    <li>• Mencatat transaksi offline</li>
-                </ul>
-            </div>
+        <button 
+            onclick="window.location.reload()" 
+            class="btn btn-primary px-6 py-3"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Coba Lagi
+        </button>
 
-            <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
-                <h3 class="font-semibold text-amber-900 mb-2">⏳ Akan Tersinkronisasi sat Online:</h3>
-                <ul class="text-left text-sm text-amber-800 space-y-1">
-                    <li>• Semua transaksi offline</li>
-                    <li>• Data yang belum tersimpan ke server</li>
-                    <li>• Update stok barang</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="mt-8 space-x-4">
-            <button onclick="window.location.reload()" 
-                    class="bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-3 rounded-lg font-semibold transition">
-                Coba Lagi
-            </button>
-            
-            <a href="/" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold transition">
-                Kembali ke Beranda
-            </a>
-        </div>
-
-        <div class="mt-8 text-sm text-gray-500">
-            <p>Data offline akan otomatis tersinkronisasi ketika koneksi kembali.</p>
-        </div>
+        <p class="text-xs text-gray-500 mt-8">
+            Halaman akan otomatis dimuat ulang saat koneksi kembali
+        </p>
     </div>
-</div>
 
-<script>
-    // Auto redirect when online
-    window.addEventListener('online', () => {
-        showToast('Koneksi kembali! Mengalihkan...', 'success');
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 1500);
-    });
-</script>
-@endsection
+    <script>
+        // Auto reload when online
+        window.addEventListener('online', () => {
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>

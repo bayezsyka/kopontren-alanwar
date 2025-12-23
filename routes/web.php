@@ -40,3 +40,12 @@ Route::get('/owner/dashboard', function () {
 Route::get('/owner/reports', function () {
     return view('owner.reports');
 })->name('owner.reports');
+
+Route::get('/owner/reports/{id}', function ($id) {
+    return view('owner.report-detail', ['reportId' => $id]);
+})->name('owner.reports.detail');
+
+// Logout (just redirect to login, actual logout handled by JS)
+Route::get('/logout', function () {
+    return view('logout');
+})->name('logout');

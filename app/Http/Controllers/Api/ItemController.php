@@ -109,6 +109,30 @@ class ItemController extends Controller
         return response()->json(['item' => $this->itemPayload($item->fresh('bundleComponents.component'))]);
     }
 
+    public function destroy(Item $item)
+    {
+        // Check if item has been used in transactions
+        $hasTransactions = $item->salelines()->exists() || $item->purchaseLines()->exists();
+        
+        if ($hasTransactions) {
+            // Soft delete - just mark as inactive
+            $item->update(['is_active' => false]);
+            return response()->json(['message' => 'Barang dinonaktifkan (ada riwayat transaksi)']);
+        }
+        
+        // Hard delete - no transaction history
+        DB::transaction(function () use ($item) {
+            // Delete bundle components first
+            BundleComponent::where('bundle_item_id', $item->id)->delete();
+            BundleComponent::where('component_item_id', $item->id)->delete();
+            
+            // Delete the item
+            $item->delete();
+        });
+        
+        return response()->json(['message' => 'Barang dihapus']);
+    }
+
     private function itemPayload(Item $item): array
     {
         // hitung stok bundle = min(component_stock / qty)

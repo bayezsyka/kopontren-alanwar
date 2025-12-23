@@ -80,11 +80,21 @@ class OfflineDatabase {
             const store = tx.objectStore("transactions");
             const index = store.index("synced");
 
-            // Use IDBKeyRange for proper querying
-            const range = IDBKeyRange.only(false);
-            const request = index.getAll(range);
+            const results = [];
+            const request = index.openCursor();
 
-            request.onsuccess = () => resolve(request.result || []);
+            request.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    if (cursor.value.synced === false) {
+                        results.push(cursor.value);
+                    }
+                    cursor.continue();
+                } else {
+                    resolve(results);
+                }
+            };
+
             request.onerror = () => reject(request.error);
         });
     }

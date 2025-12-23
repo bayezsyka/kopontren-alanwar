@@ -1,257 +1,183 @@
-@extends('layouts.main')
+@extends('layouts.app')
 
-@section('title', 'Items - Kopontren Kasir')
+@section('title', 'Barang')
+@section('page-title', 'Daftar Barang')
 
 @section('content')
-<div class="container mx-auto px-4 py-4">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-bold text-gray-900">Manajemen Item</h2>
-        <button id="addItemBtn" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus mr-2"></i>Tambah Item
+<div class="p-4 space-y-4" x-data="itemsAppComponent">
+    <!-- Header with Add Button -->
+    <div class="flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800">Kelola Barang</h2>
+        <button @click="openModal()" class="btn btn-primary text-sm px-3 py-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Tambah
         </button>
     </div>
 
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input type="text" id="searchItems" class="input input-sm" placeholder="Cari item...">
-            <select id="filterType" class="input input-sm">
-                <option value="">Semua Tipe</option>
-                <option value="normal">Normal</option>
-                <option value="bundle">Bundle</option>
-            </select>
-            <select id="filterActive" class="input input-sm">
-                <option value="">Semua Status</option>
-                <option value="1">Aktif</option>
-                <option value="0">Tidak Aktif</option>
-            </select>
-        </div>
-    </div>
-
-    <!-- Items Table -->
+    <!-- Search -->
     <div class="card">
-        <div id="itemsTable" class="overflow-x-auto">
-            <div class="text-center py-8">
-                <div class="spinner mx-auto mb-3"></div>
-                <p class="text-gray-500">Loading...</p>
+        <input 
+            type="text" 
+            x-model="searchQuery"
+            @input.debounce.300ms="loadItems"
+            class="input-field"
+            placeholder="Cari barang..."
+        >
+    </div>
+
+    <!-- Items List -->
+    <div class="space-y-2">
+        <template x-for="item in items" :key="item.id">
+            <div class="card hover:shadow-md transition-shadow">
+                <div class="flex items-start gap-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <h3 class="font-bold text-sm text-gray-900" x-text="item.name"></h3>
+                            <span 
+                                class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                :class="item.type === 'bundle' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                                x-text="item.type === 'bundle' ? '📦 Bundle' : '📋 Normal'"
+                            ></span>
+                            <span 
+                                x-show="item.is_quick" 
+                                class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold"
+                            >⚡ Cepat</span>
+                        </div>
+                        
+                        <div class="text-xs text-gray-500 space-y-0.5">
+                            <p><strong>Harga Jual:</strong> <span x-text="formatCurrency(item.price_sell)"></span></p>
+                            <p><strong>Stok:</strong> <span x-text="item.type === 'bundle' ? (item.stock_computed || 0) : (item.stock_cached || 0)"></span></p>
+                            <p x-show="item.sku"><strong>SKU:</strong> <span x-text="item.sku"></span></p>
+                            <p x-show="item.barcode"><strong>Barcode:</strong> <span x-text="item.barcode"></span></p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <button 
+                            @click="editItem(item)"
+                            class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Barang"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button 
+                            x-show="item.type === 'bundle'"
+                            @click="editBundleComponents(item)"
+                            class="p-2 text-purple-500 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Edit Komponen Bundle"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                            </svg>
+                        </button>
+                        <button 
+                            @click="deleteItem(item)"
+                            class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus Barang"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
+        </template>
+
+        <div x-show="items.length === 0 && !loading" class="card text-center py-8 text-gray-400">
+            <p class="text-sm font-medium">Tidak ada barang</p>
+        </div>
+
+        <div x-show="loading" class="card text-center py-8">
+            <svg class="animate-spin w-8 h-8 mx-auto text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
         </div>
     </div>
-</div>
 
-<!-- Add/Edit Item Modal -->
-<div id="itemModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-        <h3 id="modalTitle" class="text-xl font-bold mb-4">Tambah Item</h3>
-        
-        <form id="itemForm" class="space-y-4">
-            <input type="hidden" id="itemId">
-            
-            <div>
-                <label class="block text-sm font-medium mb-1">Nama Item *</label>
-                <input type="text" id="itemName" class="input" required>
+    <!-- Item Modal -->
+    <div 
+        x-show="showModal" 
+        x-cloak
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+        @click.self="closeModal()"
+    >
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+                <h2 class="text-lg font-bold" x-text="editingItem ? 'Edit Barang' : 'Tambah Barang'"></h2>
+                <button @click="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium mb-1">Tipe *</label>
-                <select id="itemType" class="input" required>
-                    <option value="normal">Normal</option>
-                    <option value="bundle">Bundle</option>
-                </select>
-            </div>
-
-            <div id="normalFields">
-                <div class="mb-3">
-                    <label class="block text-sm font-medium mb-1">SKU/Barcode</label>
-                    <input type="text" id="itemSku" class="input">
+            <form @submit.prevent="saveItem()" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Nama <span class="text-red-500">*</span></label>
+                    <input type="text" x-model="form.name" class="input-field" required>
                 </div>
-                <div class="mb-3">
-                    <label class="block text-sm font-medium mb-1">Harga Jual *</label>
-                    <input type="number" id="itemPrice" class="input" required>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Tipe <span class="text-red-500">*</span></label>
+                        <select x-model="form.type" class="input-field" required>
+                            <option value="normal">Normal</option>
+                            <option value="bundle">Bundle</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Harga Jual <span class="text-red-500">*</span></label>
+                        <input type="number" x-model="form.price_sell" class="input-field" min="0" required>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label class="block text-sm font-medium mb-1">Low Stock Alert</label>
-                    <input type="number" id="itemLowStock" class="input" value="10">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">SKU</label>
+                        <input type="text" x-model="form.sku" class="input-field">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Barcode</label>
+                        <input type="text" x-model="form.barcode" class="input-field">
+                    </div>
                 </div>
-            </div>
 
-            <div>
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="itemActive" checked class="rounded">
-                    <span class="text-sm">Aktif</span>
-                </label>
-            </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Batas Stok Rendah</label>
+                        <input type="number" x-model="form.low_stock_threshold" class="input-field" min="0">
+                    </div>
 
-            <div>
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="itemQuick" class="rounded">
-                    <span class="text-sm">Quick Item</span>
-                </label>
-            </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Urutan Cepat</label>
+                        <input type="number" x-model="form.quick_order" class="input-field" min="0" placeholder="0 = tidak tampil">
+                    </div>
+                </div>
 
-            <div class="flex gap-2 pt-4">
-                <button type="button" id="cancelItemBtn" class="btn btn-secondary flex-1">Batal</button>
-                <button type="submit" class="btn btn-primary flex-1">Simpan</button>
-            </div>
-        </form>
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="form.is_quick" class="w-5 h-5 text-[var(--color-primary)] border-gray-300 rounded focus:ring-[var(--color-primary)]">
+                        <span class="text-sm font-semibold">Tampilkan di Item Cepat</span>
+                    </label>
+                </div>
+
+                <div class="flex gap-2 pt-4">
+                    <button type="button" @click="closeModal()" class="btn btn-secondary flex-1">Batal</button>
+                    <button type="submit" class="btn btn-primary flex-1" :disabled="saving">
+                        <span x-show="!saving">Simpan</span>
+                        <span x-show="saving">Menyimpan...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-let items = [];
-
-async function loadItems() {
-    try {
-        const response = await window.api.get('/items');
-        items = response.data || response;
-        renderItems();
-    } catch (error) {
-        console.error('Load items error:', error);
-        showToast('Gagal memuat data', 'error');
-    }
-}
-
-function renderItems() {
-    const searchQuery = document.getElementById('searchItems').value.toLowerCase();
-    const filterType = document.getElementById('filterType').value;
-    const filterActive = document.getElementById('filterActive').value;
-
-    let filtered = items.filter(item => {
-        const matchSearch = item.name.toLowerCase().includes(searchQuery);
-        const matchType = !filterType || item.type === filterType;
-        const matchActive = !filterActive || item.is_active.toString() === filterActive;
-        return matchSearch && matchType && matchActive;
-    });
-
-    const table = document.getElementById('itemsTable');
-    
-    if (filtered.length === 0) {
-        table.innerHTML = '<p class="text-gray-400 text-center py-8">Tidak ada item</p>';
-        return;
-    }
-
-    table.innerHTML = `
-        <table class="w-full">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                ${filtered.map(item => `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3">
-                            <div class="font-semibold">${item.name}</div>
-                            ${item.quick_item ? '<span class="badge badge-warning text-xs">Quick</span>' : ''}
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="badge ${item.type === 'bundle' ? 'badge-info' : 'badge-success'}">
-                                ${item.type}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">${formatRupiah(item.price_sell)}</td>
-                        <td class="px-4 py-3">${item.stock_cached || 0}</td>
-                        <td class="px-4 py-3">
-                            <span class="badge ${item.is_active ? 'badge-success' : 'badge-danger'}">
-                                ${item.is_active ? 'Aktif' : 'Nonaktif'}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <button onclick="editItem(${item.id})" class="text-blue-600 hover:text-blue-800 px-2">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
-
-// Event listeners
-document.getElementById('searchItems').addEventListener('input', renderItems);
-document.getElementById('filterType').addEventListener('change', renderItems);
-document.getElementById('filterActive').addEventListener('change', renderItems);
-
-document.getElementById('addItemBtn').addEventListener('click', () => {
-    document.getElementById('modalTitle').textContent = 'Tambah Item';
-    document.getElementById('itemForm').reset();
-    document.getElementById('itemId').value = '';
-    document.getElementById('itemActive').checked = true;
-    document.getElementById('itemModal').classList.remove('hidden');
-    document.body.classList.add('modal-open');
-});
-
-document.getElementById('cancelItemBtn').addEventListener('click', () => {
-    document.getElementById('itemModal').classList.add('hidden');
-    document.body.classList.remove('modal-open');
-});
-
-function editItem(id) {
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-
-    document.getElementById('modalTitle').textContent = 'Edit Item';
-    document.getElementById('itemId').value = item.id;
-    document.getElementById('itemName').value = item.name;
-    document.getElementById('itemType').value = item.type;
-    document.getElementById('itemSku').value = item.sku || '';
-    document.getElementById('itemPrice').value = item.price_sell;
-    document.getElementById('itemLowStock').value = item.low_stock_threshold || 10;
-    document.getElementById('itemActive').checked = item.is_active;
-    document.getElementById('itemQuick').checked = item.quick_item;
-    
-    document.getElementById('itemModal').classList.remove('hidden');
-    document.body.classList.add('modal-open');
-}
-
-document.getElementById('itemForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const id = document.getElementById('itemId').value;
-    const data = {
-        name: document.getElementById('itemName').value,
-        type: document.getElementById('itemType').value,
-        sku: document.getElementById('itemSku').value || null,
-        price_sell: parseInt(document.getElementById('itemPrice').value),
-        low_stock_threshold: parseInt(document.getElementById('itemLowStock').value),
-        is_active: document.getElementById('itemActive').checked,
-        quick_item: document.getElementById('itemQuick').checked,
-        quick_order: document.getElementById('itemQuick').checked ? 100 : 0
-    };
-
-    showLoading();
-    
-    try {
-        if (id) {
-            await window.api.put(`/items/${id}`, data);
-        } else {
-            await window.api.post('/items', data);
-        }
-        
-        hideLoading();
-        document.getElementById('itemModal').classList.add('hidden');
-        document.body.classList.remove('modal-open');
-        
-        showToast(id ? 'Item berhasil diupdate' : 'Item berhasil ditambahkan', 'success');
-        loadItems();
-        
-    } catch (error) {
-        hideLoading();
-        console.error('Save item error:', error);
-        showToast(error.message || 'Gagal menyimpan item', 'error');
-    }
-});
-
-// Init
-loadItems();
-</script>
-@endpush

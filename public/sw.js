@@ -1,84 +1,132 @@
-const CACHE_NAME = "kopontren-kasir-v1";
-const urlsToCache = ["/", "/css/app.css", "/js/app.js", "/offline"];
+/**
+ * Service Worker for PWA
+ * Handles caching strategies and offline functionality
+ */
 
-// Install service worker
+const CACHE_NAME = "kasir-v1";
+const STATIC_CACHE = "kasir-static-v1";
+const API_CACHE = "kasir-api-v1";
+
+// Static assets to cache on install
+const STATIC_ASSETS = [
+    "/",
+    "/login",
+    "/offline",
+    "/build/assets/app.css",
+    "/build/assets/app.js",
+];
+
+// Install event - cache static assets
 self.addEventListener("install", (event) => {
+    console.log("[SW] Installing...");
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            console.log("Opened cache");
-            // Cache essential files individually to avoid failures
-            const cachePromises = urlsToCache.map(url => 
-                cache.add(url).catch(err => {
-                    console.warn(`Failed to cache ${url}:`, err);
-                    return Promise.resolve(); // Continue even if one fails
-                })
-            );
-            return Promise.all(cachePromises);
-        })
-    );
-    self.skipWaiting();
-});
-
-// Fetch event - Network First, falling back to cache
-self.addEventListener("fetch", (event) => {
-    event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                // Clone the response
-                const responseToCache = response.clone();
-
-                caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, responseToCache);
-                });
-
-                return response;
-            })
-            .catch(() => {
-                // Network failed, try cache
-                return caches.match(event.request).then((response) => {
-                    if (response) {
-                        return response;
-                    }
-
-                    // If not in cache and network failed, show offline page
-                    if (event.request.destination === "document") {
-                        return caches.match("/offline");
-                    }
+        caches
+            .open(STATIC_CACHE)
+            .then((cache) => {
+                console.log("[SW] Caching static assets");
+                return cache.addAll(STATIC_ASSETS).catch((err) => {
+                    console.error("[SW] Failed to cache some assets:", err);
                 });
             })
+            .then(() => self.skipWaiting())
     );
 });
 
-// Activate event - Clean up old caches
+// Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
+    console.log("[SW] Activating...");
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log("Deleting old cache:", cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
+        caches
+            .keys()
+            .then((cacheNames) => {
+                return Promise.all(
+                    cacheNames.map((cache) => {
+                        if (cache !== STATIC_CACHE && cache !== API_CACHE) {
+                            console.log("[SW] Deleting old cache:", cache);
+                            return caches.delete(cache);
+                        }
+                    })
+                );
+            })
+            .then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
-// Background sync for offline transactions
-self.addEventListener("sync", (event) => {
-    if (event.tag === "sync-transactions") {
-        event.waitUntil(syncTransactions());
+// Fetch event - handle requests
+self.addEventListener("fetch", (event) => {
+    const { request } = event;
+    const url = new URL(request.url);
+
+    // Skip non-GET requests (POST, PUT, DELETE cannot be cached)
+    if (request.method !== "GET") {
+        return;
+    }
+
+    // API requests - Network first, cache fallback (only GET)
+    if (url.pathname.startsWith("/api/")) {
+        event.respondWith(networkFirstStrategy(request));
+        return;
+    }
+
+    // Navigation requests - Network first, offline page fallback
+    if (request.mode === "navigate") {
+        event.respondWith(
+            fetch(request).catch(() => {
+                return caches.match("/offline");
+            })
+        );
+        return;
+    }
+
+    // Static assets - Cache first, network fallback
+    event.respondWith(cacheFirstStrategy(request));
+});
+
+/**
+ * Cache first strategy - for static assets
+ */
+async function cacheFirstStrategy(request) {
+    const cached = await caches.match(request);
+    if (cached) {
+        return cached;
+    }
+
+    try {
+        const response = await fetch(request);
+        if (response.ok) {
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(request, response.clone());
+        }
+        return response;
+    } catch (error) {
+        console.error("[SW] Fetch failed:", error);
+        throw error;
+    }
+}
+
+/**
+ * Network first strategy - for API requests
+ */
+async function networkFirstStrategy(request) {
+    try {
+        const response = await fetch(request);
+        if (response.ok) {
+            const cache = await caches.open(API_CACHE);
+            cache.put(request, response.clone());
+        }
+        return response;
+    } catch (error) {
+        const cached = await caches.match(request);
+        if (cached) {
+            return cached;
+        }
+        throw error;
+    }
+}
+
+// Handle messages from clients
+self.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "SKIP_WAITING") {
+        self.skipWaiting();
     }
 });
-
-async function syncTransactions() {
-    // This will be called when online connection is restored
-    const allClients = await clients.matchAll();
-    allClients.forEach((client) => {
-        client.postMessage({
-            type: "SYNC_TRANSACTIONS",
-        });
-    });
-}
