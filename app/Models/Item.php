@@ -28,6 +28,18 @@ class Item extends Model
         return $this->hasMany(BundleComponent::class, 'component_item_id');
     }
 
+    // ✅ TAMBAH INI
+    public function saleLines()
+    {
+        return $this->hasMany(SaleLine::class, 'item_id');
+    }
+
+    // ✅ DAN INI
+    public function purchaseLines()
+    {
+        return $this->hasMany(PurchaseLine::class, 'item_id');
+    }
+
     public function isBundle(): bool
     {
         return $this->type === self::TYPE_BUNDLE;

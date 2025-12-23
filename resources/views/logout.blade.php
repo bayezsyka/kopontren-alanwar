@@ -35,6 +35,18 @@
     @vite('resources/js/app.js')
     
     <script>
+        fetch(`${document.querySelector('meta[name="api-base-url"]').content}/logout`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${localStorage.getItem('auth_token')}`,
+                "Accept": "application/json"
+            }
+        }).finally(() => {
+            localStorage.clear();
+            window.location.href = "/login";
+        });
+
+        const api = window.api;
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // Call logout API

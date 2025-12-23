@@ -1,25 +1,40 @@
 export default (Alpine) => {
-    // User Info Component (Header)
-    Alpine.data("userInfo", () => ({
-        userName: "",
-        userRole: "",
-        userMode: "",
+    // User Info Dropdown Component (Header)
+    Alpine.data("userInfoDropdown", () => ({
+        open: false,
+        userName: "User",
+        userRole: "kasir",
+        userMode: "kasir",
         badgeText: "",
         badgeClass: "",
         avatarClass: "",
-        initials: "",
+        initials: "U",
 
         init() {
-            // Check if getAuthUser is available
-            if (typeof window.getAuthUser !== "function") {
-                console.warn("getAuthUser not available yet");
-                return;
+            try {
+                // Check if getAuthUser is available
+                if (typeof window.getAuthUser !== "function") {
+                    console.warn("getAuthUser not available yet");
+                    // Try to get from localStorage directly as fallback
+                    const storedUser = localStorage.getItem("auth_user");
+                    if (storedUser) {
+                        const user = JSON.parse(storedUser);
+                        this.setUser(user);
+                    }
+                    return;
+                }
+
+                const user = window.getAuthUser();
+                if (user) {
+                    this.setUser(user);
+                }
+            } catch (e) {
+                console.error("UserInfo init error:", e);
             }
+        },
 
-            const user = window.getAuthUser();
-            if (!user) return;
-
-            this.userName = user.name || user.email;
+        setUser(user) {
+            this.userName = user.name || user.email || "User";
             this.userRole = user.role || "kasir";
             this.userMode = user.ui_mode || "kasir";
 
@@ -45,6 +60,31 @@ export default (Alpine) => {
                 this.badgeClass = "bg-green-100 text-green-700";
                 this.avatarClass = "bg-green-600";
             }
+        },
+
+        async doLogout() {
+            // Use global logout if available (defined in auth.js by user)
+            if (typeof window.logout === "function") {
+                await window.logout();
+                return;
+            }
+
+            try {
+                if (window.api && window.api.post) {
+                    await window.api.post("/auth/logout");
+                }
+            } catch (error) {
+                console.error("Logout error:", error);
+            }
+
+            // Clear localStorage
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("auth_user");
+            localStorage.removeItem("pos_cart");
+            localStorage.removeItem("pos_held_carts");
+
+            // Redirect to login
+            window.location.href = "/login";
         },
     }));
 
@@ -706,7 +746,8 @@ export default (Alpine) => {
 
         isOwner() {
             const user = getAuthUser();
-            return user && user.role === "owner";
+            // Owner can adjust only in owner mode
+            return user && user.role === "owner" && user.ui_mode === "owner";
         },
 
         openAdjustModal(item) {

@@ -112,7 +112,7 @@ class ItemController extends Controller
     public function destroy(Item $item)
     {
         // Check if item has been used in transactions
-        $hasTransactions = $item->salelines()->exists() || $item->purchaseLines()->exists();
+        $hasTransactions = $item->saleLines()->exists() || $item->purchaseLines()->exists();
         
         if ($hasTransactions) {
             // Soft delete - just mark as inactive

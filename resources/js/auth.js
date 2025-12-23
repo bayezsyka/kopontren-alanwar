@@ -1,6 +1,24 @@
-/**
- * Auth Helper - Authentication and authorization utilities
- */
+window.logout = async () => {
+    try {
+        await fetch(`${getApiBaseUrl()}/logout`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${getAuthToken()}`,
+                Accept: "application/json",
+            },
+        });
+    } catch (e) {
+        console.warn("Logout API gagal, lanjut clear local");
+    }
+
+    // Clear local data
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    localStorage.removeItem("pos_cart");
+    localStorage.removeItem("pos_held_carts");
+
+    window.location.href = "/login";
+};
 
 /**
  * Check if user is authenticated
