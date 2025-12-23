@@ -38,6 +38,6 @@ export default defineConfig(({ mode }) => ({
     build: {
         outDir: "public/build",
         emptyOutDir: true,
-        manifest: true,
+        manifest: "manifest.json",
     },
 }));

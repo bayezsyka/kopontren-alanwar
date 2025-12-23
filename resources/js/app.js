@@ -13,5 +13,7 @@ window.Alpine = Alpine;
 // register Alpine components
 registerComponents(Alpine);
 
-// start Alpine
-Alpine.start();
+// start Alpine when DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+    Alpine.start();
+});
