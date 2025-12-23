@@ -1,17 +1,17 @@
 import "./bootstrap";
 import Alpine from "alpinejs";
+
 import "./api";
 import "./auth";
 import "./pwa";
+
 import registerComponents from "./components";
 
-// Make Alpine available globally
+// expose Alpine
 window.Alpine = Alpine;
 
-// Register Alpine components BEFORE starting
+// register Alpine components
 registerComponents(Alpine);
 
-// Delay Alpine start to ensure DOM is ready and components are registered
-document.addEventListener("DOMContentLoaded", () => {
-    Alpine.start();
-});
+// start Alpine
+Alpine.start();

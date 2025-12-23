@@ -69,7 +69,7 @@
                 @yield('header-actions')
 
                 <!-- User Info with Dropdown -->
-                <div x-data="userInfoDropdown" class="relative flex items-center gap-2 ml-2">
+                <div x-data="userInfoDropdown()" x-init="init()" class="relative flex items-center gap-2 ml-2">
                     <button @click="open = !open" class="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1 transition-colors">
                         <div class="text-right hidden sm:block">
                             <p class="text-xs font-semibold text-gray-900 leading-tight" x-text="userName"></p>
